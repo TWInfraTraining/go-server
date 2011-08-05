@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<cruise xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="cruise-config.xsd" schemaVersion="35">
+  <server artifactsdir="artifacts" />
+  <pipelines group="CI">
+    <pipeline name="test">
+      <environmentvariables>
+        <variable name="AWS_ACCESS_KEY"><%= aws_access_key %></variable>
+        <variable name="AWS_SECRET_KEY"><%= aws_secret_key %></variable>
+      </environmentvariables>
+      <materials>
+        <pipeline pipelineName="puppet" stageName="package" materialName="puppet" />
+        <pipeline pipelineName="opencart" stageName="package" materialName="opencart" />
+        <git url="file:///var/git/build-scripts.git" materialName="build-scripts" />
+      </materials>
+      <stage name="launch">
+        <jobs>
+          <job name="launch_ec2">
+            <tasks>
+              <exec command="./launch_ec2.py">
+                <arg>start</arg>
+                <runif status="passed" />
+              </exec>
+            </tasks>
+            <artifacts>
+              <artifact src="data" />
+            </artifacts>
+          </job>
+        </jobs>
+      </stage>
+      <stage name="configure">
+        <jobs>
+          <job name="configure_node">
+            <tasks>
+              <fetchartifact pipeline="opencart" stage="package" job="make" srcfile="opencart.deb">
+                <runif status="passed" />
+              </fetchartifact>
+              <fetchartifact pipeline="puppet" stage="package" job="package_puppet" srcfile="puppet.tgz">
+                <runif status="passed" />
+              </fetchartifact>
+              <fetchartifact pipeline="test" stage="launch" job="launch_ec2" srcdir="data">
+                <runif status="passed" />
+              </fetchartifact>
+              <exec command="fix_perms">
+                <runif status="passed" />
+              </exec>
+              <exec command="whoami">
+                <runif status="passed" />
+              </exec>
+              <exec command="data/ec2_scp">
+                <arg>opencart.deb</arg>
+                <runif status="passed" />
+              </exec>
+              <exec command="data/ec2_scp">
+                <arg>puppet.tgz</arg>
+                <runif status="passed" />
+              </exec>
+              <exec command="data/ec2_ssh">
+                <arg>sudo apt-get install -y rubygems puppet</arg>
+                <runif status="passed" />
+              </exec>
+              <exec command="data/ec2_ssh">
+                <arg>tar zxvf puppet.tgz</arg>
+                <runif status="passed" />
+              </exec>
+              <exec command="data/ec2_ssh">
+                <arg>sudo puppet apply --modulepath=modules combined.pp</arg>
+                <runif status="passed" />
+              </exec>
+            </tasks>
+            <artifacts>
+              <artifact src="puppet.tgz" />
+              <artifact src="opencart.deb" />
+            </artifacts>
+          </job>
+        </jobs>
+      </stage>
+      <stage name="test">
+        <jobs>
+          <job name="cucumber">
+            <tasks>
+              <fetchartifact pipeline="opencart" stage="package_tests" job="make" srcfile="tests.tgz">
+                <runif status="passed" />
+              </fetchartifact>
+              <fetchartifact pipeline="test" stage="launch" job="launch_ec2" srcdir="data">
+                <runif status="passed" />
+              </fetchartifact>
+              <exec command="fix_perms">
+                <runif status="passed" />
+              </exec>
+              <exec command="tar">
+                <arg>xzvf</arg>
+                <arg>tests.tgz</arg>
+                <runif status="passed" />
+              </exec>
+              <exec command="data/ec2_cucumber">
+                <arg>-f</arg>
+                <arg>junit</arg>
+                <arg>--out</arg>
+                <arg>test-output</arg>
+                <arg>features</arg>
+                <runif status="passed" />
+              </exec>
+            </tasks>
+            <artifacts>
+              <test src="test-output" />
+            </artifacts>
+          </job>
+        </jobs>
+      </stage>
+      <stage name="terminate">
+        <jobs>
+          <job name="shutdown">
+            <tasks>
+              <fetchartifact pipeline="test" stage="launch" job="launch_ec2" srcdir="data">
+                <runif status="passed" />
+              </fetchartifact>
+              <exec command="launch_ec2.py">
+                <arg>stop</arg>
+                <runif status="passed" />
+              </exec>
+            </tasks>
+          </job>
+        </jobs>
+      </stage>
+    </pipeline>
+    <pipeline name="puppet" isLocked="false">
+      <materials>
+        <git url="file:///var/git/puppet.git" />
+      </materials>
+      <stage name="package" cleanWorkingDir="true">
+        <jobs>
+          <job name="package_puppet">
+            <tasks>
+              <exec command="make" />
+            </tasks>
+            <artifacts>
+              <artifact src="puppet.tgz" />
+            </artifacts>
+          </job>
+        </jobs>
+      </stage>
+    </pipeline>
+    <pipeline name="opencart">
+      <materials>
+        <git url="file:///var/git/opencart.git" />
+      </materials>
+      <stage name="package" cleanWorkingDir="true">
+        <jobs>
+          <job name="make">
+            <tasks>
+              <exec command="make" args="package" />
+            </tasks>
+            <artifacts>
+              <artifact src="opencart.deb" />
+            </artifacts>
+          </job>
+        </jobs>
+      </stage>
+      <stage name="package_tests">
+        <jobs>
+          <job name="make">
+            <tasks>
+              <exec command="make">
+                <arg>package-tests</arg>
+                <runif status="passed" />
+              </exec>
+            </tasks>
+            <artifacts>
+              <artifact src="tests.tgz" />
+            </artifacts>
+          </job>
+        </jobs>
+      </stage>
+    </pipeline>
+  </pipelines>
+</cruise>

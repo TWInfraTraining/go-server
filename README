@@ -1,0 +1,12 @@
+This is a sample go installation with a local agent, 3 git repositories, 3 pipelines, debhelper and cucumber installed.
+
+To use edit go.pp and set these values apropriately:
+
+aws_access_key
+aws_secret_key
+go_server_deb_url
+go_agent_deb_url
+
+Then do:
+
+sudo puppet apply --modulepath=modules go.pp
