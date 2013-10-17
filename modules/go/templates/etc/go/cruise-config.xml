@@ -6,6 +6,8 @@
       <environmentvariables>
         <variable name="AWS_ACCESS_KEY"><%= aws_access_key %></variable>
         <variable name="AWS_SECRET_KEY"><%= aws_secret_key %></variable>
+        <variable name="AMI_ID">ami-4585d62c</variable>
+        <variable name="INSTANCE_TYPE">m1.small</variable>
       </environmentvariables>
       <materials>
         <pipeline pipelineName="puppet" stageName="package" materialName="puppet" />
@@ -52,6 +54,10 @@
               </exec>
               <exec command="data/ec2_scp">
                 <arg>puppet.tgz</arg>
+                <runif status="passed" />
+              </exec>
+              <exec command="data/ec2_ssh">
+                <arg>sudo apt-get update</arg>
                 <runif status="passed" />
               </exec>
               <exec command="data/ec2_ssh">
