@@ -7,6 +7,8 @@ import "build"
 class { "go::server":
   aws_access_key => "ENTER YOUR AWS ACCESS KEY HERE",
   aws_secret_key => "ENTER YOUR AWS SECRET KEY HERE",
+  aws_ami_id => "",
+  aws_instance_type => "m1.small",
   go_server_deb_url => "ENTER URL TO DOWNLOAD GO SERVER DEBIAN PACKAGE",
 }
 

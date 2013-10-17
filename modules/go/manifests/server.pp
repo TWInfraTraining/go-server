@@ -1,6 +1,6 @@
 import "java"
 
-class go::server($aws_access_key, $aws_secret_key, $go_server_deb_url) {
+class go::server($aws_access_key, $aws_secret_key, $aws_ami_id, $aws_instance_type, $go_server_deb_url) {
   package { "unzip":
     ensure => installed,
   }
